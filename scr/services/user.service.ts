@@ -1,10 +1,36 @@
 import User, { IUser } from '../models/user.model';
 import Group from '../models/group.model'
+import { SecurityClass } from '../security/security';
+import { UserDto } from '../dto/user.dto';
+import { InternalException, NotFoundException } from '../exceptions';
 
-class UserService {
-  public async createUser(name: string, email: string, password: string): Promise<IUser> {
-    const newUser = new User({ name, email, password });
-    return await newUser.save();
+export class UserService {
+  public async createUser(userData: any): Promise<UserDto> {
+    try {
+      const { name, email, password } = userData;
+
+      const hashedPassword = await SecurityClass.encryptUserPassword(password);
+
+      const newUser = new User({
+        name,
+        email,
+        password: hashedPassword,
+      });
+
+      const savedUser = await newUser.save();
+
+      return new UserDto(
+        savedUser.name,
+        savedUser.email,
+        savedUser.createdAt ? savedUser.createdAt : new Date()
+      );
+    } catch (error) {
+      console.error(error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalException(`Erro ao criar usuário`);
+    }
   }
 
   public async getUserByEmail(email: string): Promise<IUser | null> {
@@ -24,7 +50,4 @@ class UserService {
 
     return group;
   }
-
 }
-
-export default UserService;
